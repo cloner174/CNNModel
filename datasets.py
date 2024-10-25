@@ -29,7 +29,7 @@ class NoduleDataset(Dataset):
 
         if self.is_fully_annotated:
             mask = torch.tensor(self.masks[idx], dtype=torch.long)  # [H, W]
-            box = torch.tensor(self.boxes[idx], dtype=torch.float32)  # [bbox_size]
+            box = torch.tensor(self.boxes[idx], dtype=torch.float32).view(-1)  # [bbox_size]
             label = torch.tensor(self.labels[idx], dtype=torch.float32)  # Scalar
 
             box = box / 64.0 

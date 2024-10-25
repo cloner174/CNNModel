@@ -1,11 +1,8 @@
-
 from torchvision import models
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class CNNBackbone(nn.Module):
-    
     def __init__(self, input_channels=1):
         super(CNNBackbone, self).__init__()
         self.features = nn.Sequential(
@@ -38,11 +35,8 @@ class CNNBackbone(nn.Module):
     def forward(self, x):
         features = self.features(x)
         return features
-    
-
 
 class MultitaskCNN(nn.Module):
-    
     def __init__(self, input_channels=1, num_classes=13, bbox_size=4):
         super(MultitaskCNN, self).__init__()
         self.backbone = CNNBackbone(input_channels)
@@ -81,13 +75,9 @@ class MultitaskCNN(nn.Module):
         loc_out = self.localization_head(features)
         
         return seg_out, cls_out, loc_out
-    
-
 
 class MultitaskCNN_Pretrained(nn.Module):
-    
     def __init__(self, input_channels=1, num_classes=13, bbox_size=4):
-        
         super(MultitaskCNN_Pretrained, self).__init__()
         self.encoder = models.resnet34(pretrained=True)
         
@@ -132,5 +122,5 @@ class MultitaskCNN_Pretrained(nn.Module):
         loc_out = self.localization_head(features)
         
         return seg_out, cls_out, loc_out
-    
+
 #cloner174

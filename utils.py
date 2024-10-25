@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 
-
 def visualize_predictions(model, dataloader, device, num_samples=5, num_classes=13):
-    
     model.eval()
     images_shown = 0
     plt.figure(figsize=(20, num_samples * 5))
@@ -14,7 +12,7 @@ def visualize_predictions(model, dataloader, device, num_samples=5, num_classes=
                 images, masks, boxes, labels = batch
                 is_annotated = True
             else:
-                images, labels = batch
+                images, labels, idx = batch
                 is_annotated = False
             
             images = images.to(device)

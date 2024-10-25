@@ -69,9 +69,13 @@ def train_model(model, train_loader, val_loader, device, num_epochs=50, patience
             scaler.scale(total_loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            train_seg_loss += (loss_seg_a.item() + loss_seg_w.item()) * images_a.size(0)
-            train_cls_loss += (loss_cls_a.item() + loss_cls_w.item()) * images_a.size(0)
+            
+            train_seg_loss += (loss_seg_a.item() if isinstance(loss_seg_a, torch.Tensor) else loss_seg_a) * images_a.size(0)
+            train_seg_loss += (loss_seg_w.item() if isinstance(loss_seg_w, torch.Tensor) else loss_seg_w) * images_a.size(0)
+            train_cls_loss += (loss_cls_a.item() if isinstance(loss_cls_a, torch.Tensor) else loss_cls_a) * images_a.size(0)
+            train_cls_loss += (loss_cls_w.item() if isinstance(loss_cls_w, torch.Tensor) else loss_cls_w) * images_a.size(0)
             train_loc_loss += loss_loc_a.item() * images_a.size(0)
+            
             train_total += images_a.size(0)
         
         avg_train_seg_loss = train_seg_loss / train_total

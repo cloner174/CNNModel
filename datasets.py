@@ -31,9 +31,9 @@ class NoduleDataset(Dataset):
             mask = torch.tensor(self.masks[idx], dtype=torch.long)  # [H, W]
             box = torch.tensor(self.boxes[idx], dtype=torch.float32).view(-1)  # [bbox_size]
             label = torch.tensor(self.labels[idx], dtype=torch.float32)  # Scalar
-
+            
             box = box / 64.0 
-
+            
             return image, mask, label, box
         else:
             label = torch.tensor(self.labels[idx], dtype=torch.float32)  # Scalar

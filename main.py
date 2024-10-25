@@ -36,7 +36,7 @@ def train_model(model, train_loader, val_loader, device, num_epochs=50, patience
         train_loc_loss = 0.0
         train_total = 0
         for (batch_a, batch_w) in tqdm(zip(train_loader['annotated'], train_loader['weak']), desc=f'Epoch {epoch}/{num_epochs} - Training', total=min(len(train_loader['annotated']), len(train_loader['weak']))):
-            images_a, masks_a, boxes_a, labels_a = batch_a
+            images_a, masks_a, labels_a, boxes_a = batch_a
             images_a = images_a.to(device)
             masks_a = masks_a.to(device)
             boxes_a = boxes_a.to(device)
@@ -95,7 +95,7 @@ def train_model(model, train_loader, val_loader, device, num_epochs=50, patience
         mae = 0.0
         with torch.no_grad():
             for batch in tqdm(val_loader, desc=f'Epoch {epoch}/{num_epochs} - Validation'):
-                images, masks, boxes, labels = batch
+                images, masks, labels, boxes  = batch
                 images = images.to(device)
                 masks = masks.to(device)
                 boxes = boxes.to(device)

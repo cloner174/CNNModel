@@ -9,10 +9,10 @@ def visualize_predictions(model, dataloader, device, num_samples=5, num_classes=
     with torch.no_grad():
         for batch in dataloader:
             if len(batch) == 4:
-                images, masks, boxes, labels = batch
+                images, masks, labels, boxes = batch
                 is_annotated = True
             else:
-                images, labels, idx = batch
+                images, labels = batch
                 is_annotated = False
             
             images = images.to(device)

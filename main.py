@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from metrics import calculate_segmentation_metrics, calculate_classification_metrics, calculate_localization_metrics
-from torch.cuda.amp import autocast, GradScaler
+from torch import amp
+
 
 class MultiTaskLoss(nn.Module):
     def __init__(self):
@@ -19,17 +20,23 @@ class MultiTaskLoss(nn.Module):
                (torch.exp(-self.log_sigma3) * loss_loc + self.log_sigma3)
         return loss
 
-def train_model(model, train_loader, val_loader, device, num_epochs=50, patience=10, base_dir='./'):
+def train_model(model, annotated_loader, weak_loader, val_loader, device, num_epochs=50, patience=10, base_dir='./',return_model = False):
     criterion_seg = nn.CrossEntropyLoss()
     criterion_cls = nn.BCEWithLogitsLoss()
     criterion_loc = nn.SmoothL1Loss()
     multi_task_loss = MultiTaskLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
-    scaler = GradScaler()
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+    lr_currrent = scheduler.get_last_lr()
+    scaler = amp.GradScaler()
     best_val_loss = float('inf')
+    train_loader = {'annotated': annotated_loader, 'weak': weak_loader}
     counter = 0
     for epoch in range(1, num_epochs + 1):
+        if scheduler.get_last_lr() != lr_currrent:
+            print(f"Update Learning Rate: {scheduler.get_last_lr()/lr_currrent}")
+            lr_currrent = scheduler.get_last_lr()
+        
         model.train()
         train_seg_loss = 0.0
         train_cls_loss = 0.0
@@ -41,16 +48,16 @@ def train_model(model, train_loader, val_loader, device, num_epochs=50, patience
             masks_a = masks_a.to(device)
             boxes_a = boxes_a.to(device)
             labels_a = labels_a.to(device).unsqueeze(1)
-            images_w, labels_w, idx_w = batch_w
+            images_w, labels_w = batch_w
             images_w = images_w.to(device)
             labels_w = labels_w.to(device).unsqueeze(1)
             optimizer.zero_grad()
-            with autocast():
+            with amp.autocast(device_type='cuda'):
                 outputs_seg_a, outputs_cls_a, outputs_loc_a = model(images_a)
                 loss_seg_a = criterion_seg(outputs_seg_a, masks_a)
                 loss_cls_a = criterion_cls(outputs_cls_a, labels_a)
                 loss_loc_a = criterion_loc(outputs_loc_a, boxes_a)
-                outputs_seg_w, outputs_cls_w, outputs_loc_w = model(images_w)
+                outputs_seg_w, outputs_cls_w , _= model(images_w)
                 loss_cls_w = criterion_cls(outputs_cls_w, labels_w)
                 probs_seg_w = torch.softmax(outputs_seg_w, dim=1)
                 max_probs, pseudo_masks_w = torch.max(probs_seg_w, dim=1)
@@ -100,25 +107,36 @@ def train_model(model, train_loader, val_loader, device, num_epochs=50, patience
         with torch.no_grad():
             for batch in tqdm(val_loader, desc=f'Epoch {epoch}/{num_epochs} - Validation'):
                 images, masks, labels, boxes  = batch
+                
                 images = images.to(device)
                 masks = masks.to(device)
                 boxes = boxes.to(device)
+                
                 labels = labels.to(device).unsqueeze(1)
+                
                 outputs_seg, outputs_cls, outputs_loc = model(images)
+                
                 loss_seg_val = criterion_seg(outputs_seg, masks)
                 loss_cls_val = criterion_cls(outputs_cls, labels)
                 loss_loc_val = criterion_loc(outputs_loc, boxes)
+                
                 val_seg_loss += loss_seg_val.item() * images.size(0)
                 val_cls_loss += loss_cls_val.item() * images.size(0)
                 val_loc_loss += loss_loc_val.item() * images.size(0)
                 val_total += images.size(0)
+                
                 preds_cls = (torch.sigmoid(outputs_cls) > 0.5).float()
                 correct_cls += (preds_cls == labels).sum().item()
                 total_cls += labels.size(0)
                 dice, iou = calculate_segmentation_metrics(torch.argmax(outputs_seg, dim=1), masks, num_classes=13)
                 dice_score += dice * images.size(0)
                 iou_score += iou * images.size(0)
-                prec, rec, f1_score_val, roc_auc_val = calculate_classification_metrics(outputs_cls, labels)
+                try:
+                    
+                    prec, rec, f1_score_val, roc_auc_val = calculate_classification_metrics(outputs_cls, labels)
+                except:
+                    prec = rec = f1_score_val = roc_auc_val = 0.0
+                
                 precision += prec * images.size(0)
                 recall += rec * images.size(0)
                 f1 += f1_score_val * images.size(0)
@@ -158,5 +176,8 @@ def train_model(model, train_loader, val_loader, device, num_epochs=50, patience
             if counter >= patience:
                 print("Early stopping triggered.")
                 break
+    
+    if return_model:
+        return model
     
 #cloner174
